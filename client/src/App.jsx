@@ -1,35 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import { useEffect, useMemo, useState } from 'react'
+import { io } from "socket.io-client"
+// import L from 'leaflet'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const socket = useMemo(() => io("http://localhost:3000"), []);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(position => {
+        const { latitude, longitude } = position.coords;
+        socket.emit('send-location', { latitude, longitude });
+
+        // Initialize map if not already initialized
+        if (!map) {
+          map = L.map('map').setView([0, 0], 16);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+          }).addTo(map);
+        } else {
+          // map.setView([latitude, longitude]);
+        }
+      },
+        (error) => {
+          console.log(error)
+        }, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+    }
+
+    socket.on("connect", () => {
+      console.log("connected", socket.id);
+    });
+    const markers={}
+    socket.on("recived-location", ({id,latitude,longitude})=>{
+      // console.log("recived-location", latitude, longitude);
+      map.setView([latitude,longitude],18)
+      if(markers[id]){
+        markers[id].setLatLng([latitude,longitude])
+      }
+      else{
+         markers[id] = L.marker([latitude, longitude]).addTo(map);
+      }
+    });
+
+    socket.on("user-disconnected",({id})=>{
+      console.log("user disconnected",id)
+    })
+    socket.on("welcome", (msg) => {
+      console.log(msg);
+    });
+  }, [socket]);
+
+  let map;
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <div className='map' id='map' ></div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
