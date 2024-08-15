@@ -54,7 +54,7 @@ function App() {
     });
   }, [socket]);
 
-  let map;
+
 
   return (
     <>
